@@ -18,6 +18,7 @@ void initGameSize();
 typedef struct
 {
     bool edge;
+    bool visited;
     bool show;
     bool bomb;
     bool flagged;
@@ -27,15 +28,25 @@ typedef struct
 void FloodFill(cell gameBoard[boardTotalSize][boardTotalSize], int clickrow, int clickcol)
 {
 
-    // if (gameBoard[clickrow][clickcol].adjBombs > 0)
-    // {
-    //     gameBoard[clickrow - 1][clickcol - 1].show = true;
-    //     gameBoard[clickrow + 1][clickcol + 1].show = true;
-    //     gameBoard[clickrow - 1][clickcol + 1].show = true;
-    //     gameBoard[clickrow + 1][clickcol - 1].show = true;
-    // }
+    if(gameBoard[clickrow][clickcol].visited == true){
+        return;
+    }
+    if(gameBoard[clickrow][clickcol].edge == true)  
+    {
+        return;
+    }
+    if (gameBoard[clickrow][clickcol].adjBombs == 0)
+    {
+        // if clickrow + y clickcol + x is empty dont show TODO
+        gameBoard[clickrow - 1][clickcol - 1].show = true;
+        gameBoard[clickrow + 1][clickcol + 1].show = true;
+        gameBoard[clickrow - 1][clickcol + 1].show = true;
+        gameBoard[clickrow + 1][clickcol - 1].show = true;
+    }
 
-    if (gameBoard[clickrow][clickcol].adjBombs > 0 || gameBoard[clickrow][clickcol].edge == true || gameBoard[clickrow][clickcol].show == true)
+    gameBoard[clickrow][clickcol].visited = true;
+
+    if (gameBoard[clickrow][clickcol].adjBombs > 0)
     {
         gameBoard[clickrow][clickcol].show = true;
         return;
@@ -47,7 +58,6 @@ void FloodFill(cell gameBoard[boardTotalSize][boardTotalSize], int clickrow, int
     FloodFill(gameBoard, clickrow + 1, clickcol);
     FloodFill(gameBoard, clickrow, clickcol - 1);
     FloodFill(gameBoard, clickrow, clickcol + 1);
-
 
     return;
 }
@@ -158,6 +168,7 @@ int main(int argc, char *argv[])
         for (int col = 0; col < boardTotalSize; col++)
         {
             gameBoard[row][col].edge = true;
+            gameBoard[row][col].visited = false;
             gameBoard[row][col].adjBombs = 0;
             gameBoard[row][col].bomb = false;
             gameBoard[row][col].flagged = false;
@@ -190,9 +201,9 @@ int main(int argc, char *argv[])
     int window_height = (grid_height * grid_cell_size) + 1;
 
     // Dark theme.
-    // SDL_Color grid_background = {22, 22, 22, 255}; // Barely Black
-    SDL_Color grid_line_color = {44, 44, 44, 255}; // Dark grey
-    // SDL_Color grid_cursor_ghost_color = {44, 44, 44, 255};
+    SDL_Color grid_background = {0, 0, 0, 0}; // Black
+    SDL_Color grid_line_color = {22, 22, 255, 255}; // Dark grey
+    SDL_Color grid_empty = {44, 44, 44, 255};
     SDL_Color text_color = {255, 255, 255, 255}; // White
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
@@ -203,7 +214,7 @@ int main(int argc, char *argv[])
     }
 
     SDL_Window *window;
-    SDL_SetWindowTitle(window, "SDL2 Minesweeper in C");
+    // SDL_SetWindowTitle(window, "SDL2 Minesweeper in C");
     SDL_Renderer *renderer;
 
     if (SDL_CreateWindowAndRenderer(window_width, window_height, 0, &window,
@@ -214,8 +225,8 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    TTF_Font *font = TTF_OpenFont("arial.ttf", 36);
-    char charDigits[][2] = {"0", "1", "2", "3", "4", "5", "6", "7", "8"};
+    TTF_Font *font = TTF_OpenFont("arial.ttf", grid_cell_size + 36);
+    char charDigits[][2] = {"F", "1", "2", "3", "4", "5", "6", "7", "8"};
     SDL_Rect rectDigit;
     SDL_Texture *textChars[9];
 
@@ -227,8 +238,8 @@ int main(int argc, char *argv[])
         SDL_FreeSurface(text);
     }
 
-    rectDigit.w = grid_width;
-    rectDigit.h = grid_height;
+    rectDigit.w = grid_cell_size;
+    rectDigit.h = grid_cell_size;
 
     SDL_bool quit = SDL_FALSE;
     SDL_Event event;
@@ -257,22 +268,32 @@ int main(int argc, char *argv[])
                 clickcol = event.motion.x / grid_cell_size + 1;
                 clickrow = event.motion.y / grid_cell_size + 1;
 
-                if (first == true)
-                {
-                    generateBoard(gameBoard, clickrow, clickcol);
-                    FloodFill(gameBoard, clickrow, clickcol);
-
-                    printshit(gameBoard);
-                    first = false;
-                }
 
                 if (event.button.button == SDL_BUTTON_LEFT)
                 {
+                    if (first == true)
+                    {
+                        generateBoard(gameBoard, clickrow, clickcol);
+
+                        printshit(gameBoard);
+                        first = false;
+                    }
+                        FloodFill(gameBoard, clickrow, clickcol);
                     leftB = true;
                 }
                 else if (event.button.button == SDL_BUTTON_RIGHT)
                 {
-                    rightB = true;
+                    // gameBoard[clickrow][clickcol].flagged = gameBoard[clickrow][clickcol].flagged == true ? false : true;
+                    if (gameBoard[clickrow][clickcol].flagged == true){
+                        gameBoard[clickrow][clickcol].flagged = false;
+                        gameBoard[clickrow][clickcol].show = false;
+                    }
+                    else{
+                        gameBoard[clickrow][clickcol].flagged = true;
+                        gameBoard[clickrow][clickcol].show = true;
+                    }
+
+                        rightB = true;
                 }
 
                 break;
@@ -282,6 +303,35 @@ int main(int argc, char *argv[])
             }
         }
 
+        // Draw grid background.
+        SDL_SetRenderDrawColor(renderer, grid_background.r, grid_background.g,
+                               grid_background.b, grid_background.a);
+        SDL_RenderClear(renderer);
+
+        for (int row = 1; row <= gameSize; row++)
+        {
+            for (int col = 1; col <= gameSize; col++)
+            {
+                if(gameBoard[row][col].show == true && gameBoard[row][col].bomb == false && gameBoard[row][col].flagged == false){
+
+                        rectDigit.x = grid_cell_size * (col - 1);
+                        rectDigit.y = grid_cell_size * (row - 1);
+                    if (gameBoard[row][col].adjBombs == 0)
+                    {
+                        SDL_SetRenderDrawColor(renderer, grid_empty.r, grid_empty.g, grid_empty.b, grid_empty.a);
+                        SDL_RenderFillRect(renderer, &rectDigit);
+                    }
+                    else
+                    {
+                        SDL_RenderCopy(renderer, textChars[gameBoard[row][col].adjBombs], NULL, &rectDigit);
+                    }
+                }
+                if (gameBoard[row][col].flagged == true)
+                {
+                    SDL_RenderCopy(renderer, textChars[0], NULL, &rectDigit);
+                }
+            }
+        }
         // Draw grid lines.
         SDL_SetRenderDrawColor(renderer, grid_line_color.r, grid_line_color.g,
                                grid_line_color.b, grid_line_color.a);
@@ -296,21 +346,6 @@ int main(int argc, char *argv[])
              y += grid_cell_size)
         {
             SDL_RenderDrawLine(renderer, 0, y, window_width, y);
-        }
-
-        for (int row = 1; row <= gameSize; row++)
-        {
-            for (int col = 1; col <= gameSize; col++)
-            {
-                if(gameBoard[row][col].show == true && gameBoard[row][col].bomb == false){
-
-                    rectDigit.x = grid_cell_size * (col - 1) + grid_cell_size / 5;
-                    rectDigit.y = grid_cell_size * (row - 1) + grid_cell_size / 5;
-                    SDL_RenderCopy(renderer, textChars[gameBoard[row][col].adjBombs], NULL, &rectDigit);
-
-                }
-
-            }
         }
 
 
@@ -404,7 +439,3 @@ int main(int argc, char *argv[])
 //     // look all around the cell
 // }
 
-// // Draw grid background.
-// SDL_SetRenderDrawColor(renderer, grid_background.r, grid_background.g,
-//                        grid_background.b, grid_background.a);
-// SDL_RenderClear(renderer);
